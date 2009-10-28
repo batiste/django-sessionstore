@@ -21,6 +21,7 @@ class DJsessionTestCase(TestCase):
         session = SessionStore()
         self.assertFalse(session.exists('0360e53e4a8e381de3389b11455facd7'))
         django1 = db.connection.queries[0]
+        # there is an issue there with the test if you have already some data...
         self.assertTrue('django_session_1' in django1['sql'])
         django0 = db.connection.queries[1]
         self.assertTrue('django_session' in django0['sql'])
@@ -92,6 +93,8 @@ class DJsessionTestCase(TestCase):
 
     def test_04_rotate_table(self):
         """Test that the rotation functions works."""
+        cursor = connection.cursor()
+        
         self.assertEqual(Tableversion.objects.get_session_table_name(),
             ('django_session', 'django_session_1'))
 
@@ -112,34 +115,30 @@ class DJsessionTestCase(TestCase):
         lastest.latest_rotation = datetime.datetime.now() - delta
         lastest.save()
 
-        self.assertEqual(Tableversion.objects.rotate_table().current_version, 2)
+        # without data in session the rotation should be denied
+        self.assertEqual(Tableversion.objects.rotate_table().current_version, 1)
+        sql = """INSERT INTO django_session_1 VALUES ('a', 'a', date());"""
+        cursor.execute(sql)
+        sql = """INSERT INTO django_session VALUES ('a', 'a', date());"""
+        cursor.execute(sql)
         self.assertEqual(Tableversion.objects.rotate_table().current_version, 2)
 
         self.assertEqual(Tableversion.objects.get_session_table_name(),
             ('django_session_1', 'django_session_2'))
 
         self.assertTrue("django_session_2" in introspection.table_names())
-
         self.assertTrue("django_session" in introspection.table_names())
-        # for security, the cleanup should abort if there is nothing
-        # in the current session table
+
+        # should refuse to cleanup because django_session_2 is empty
         self.assertNotEqual(Tableversion.objects.cleanup_old_session_table(),
             "Success")
 
         # let's insert something in current table
-        cursor = connection.cursor()
         sql = """INSERT INTO django_session_2 VALUES ('a', 'a', date());"""
-        cursor.execute(sql)
-
-        # should refuse to cleanup
-        self.assertNotEqual(Tableversion.objects.cleanup_old_session_table(),
-            "Success")
-
-        # let's insert something in previous table
-        sql = """INSERT INTO django_session_1 VALUES ('a', 'a', date());"""
         cursor.execute(sql)
             
         self.assertEqual(Tableversion.objects.cleanup_old_session_table(),
             "Success")
 
+        # django_session should have been deleted
         self.assertTrue("django_session" not in introspection.table_names())

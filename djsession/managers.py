@@ -37,6 +37,28 @@ class TableversionManager(models.Manager):
         current_table_name="django_session_%d" % current_version
         return previous_table_name, current_table_name
 
+    def is_rotation_necessary(self, latest_version):
+        now = datetime.datetime.now()
+        delta = now - latest_version.latest_rotation
+        min_delta = datetime.timedelta(days=DJSESSION_EXPIRE_DAYS)
+        if min_delta > delta:
+            return False
+        return True
+
+    def one_sessions_table_is_empty(self):
+        preserve_set = self.get_session_table_name()
+        sql1 = """SELECT * FROM %s LIMIT 1;""" % preserve_set[0]
+        sql2 = """SELECT * FROM %s LIMIT 1;""" % preserve_set[1]
+        cursor = connection.cursor()
+        try:
+            cursor.execute(sql1)
+            cursor.next()
+            cursor.execute(sql2)
+            cursor.next()
+        except StopIteration:
+            return True
+        return False
+
     def rotate_table(self):
         """Rotate the session table, create session tables if necessary."""
         try:
@@ -48,10 +70,9 @@ class TableversionManager(models.Manager):
             latest_version = self.model(current_version=1)
             latest_version.save()
             return latest_version
-        now = datetime.datetime.now()
-        delta = now - latest_version.latest_rotation
-        min_delta = datetime.timedelta(days=DJSESSION_EXPIRE_DAYS)
-        if min_delta > delta:
+        if not self.is_rotation_necessary(latest_version):
+            return latest_version
+        if self.one_sessions_table_is_empty():
             return latest_version
         incresead_version = latest_version.current_version + 1
         latest_version = self.model(current_version=incresead_version)
@@ -75,22 +96,15 @@ class TableversionManager(models.Manager):
         return "Success"
 
     def cleanup_old_session_table(self):
+        """Cleanup old session tables if necessary"""
+        cursor = connection.cursor()
         preserve_set = self.get_session_table_name()
 
         table_empty_msg = """On of the current session table is empty.
 Be sure you have restarted your servers properly and waited the
 appropriate time for the old sessions to migrate."""
-        
         # test if there is something in both of current tables
-        sql1 = """SELECT * FROM %s LIMIT 1;""" % preserve_set[0]
-        sql2 = """SELECT * FROM %s LIMIT 1;""" % preserve_set[1]
-        cursor = connection.cursor()
-        try:
-            cursor.execute(sql1)
-            cursor.next()
-            cursor.execute(sql2)
-            cursor.next()
-        except StopIteration:
+        if self.one_sessions_table_is_empty():
             return table_empty_msg
         try:
             latest_version = self.latest()
