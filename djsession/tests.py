@@ -94,33 +94,27 @@ class DJsessionTestCase(TestCase):
     def test_04_rotate_table(self):
         """Test that the rotation functions works."""
         cursor = connection.cursor()
-        
-        self.assertEqual(Tableversion.objects.get_session_table_name(),
-            ('django_session', 'django_session_1'))
-
         introspection = connection.introspection
+        today = connection.ops.value_to_db_date(datetime.datetime.now())
 
         self.assertEqual(Tableversion.objects.rotate_table().current_version, 1)
         self.assertEqual(Tableversion.objects.rotate_table().current_version, 1)
-
-        self.assertTrue("django_session_1" in introspection.table_names())
-        self.assertFalse("django_session_2" in introspection.table_names())
 
         self.assertEqual(Tableversion.objects.get_session_table_name(),
             ('django_session', 'django_session_1'))
 
         delta = datetime.timedelta(days=DJSESSION_EXPIRE_DAYS + 1)
-
         lastest = Tableversion.objects.latest()
         lastest.latest_rotation = datetime.datetime.now() - delta
         lastest.save()
 
         # without data in session the rotation should be denied
         self.assertEqual(Tableversion.objects.rotate_table().current_version, 1)
-        sql = """INSERT INTO django_session_1 VALUES ('a', 'a', date());"""
-        cursor.execute(sql)
-        sql = """INSERT INTO django_session VALUES ('a', 'a', date());"""
-        cursor.execute(sql)
+        sql = """INSERT INTO django_session_1 VALUES ('a', 'a', %s);"""
+        cursor.execute(sql, [today])
+        sql = """INSERT INTO django_session VALUES ('a', 'a', %s);"""
+        cursor.execute(sql, [today])
+
         self.assertEqual(Tableversion.objects.rotate_table().current_version, 2)
 
         self.assertEqual(Tableversion.objects.get_session_table_name(),
@@ -134,8 +128,8 @@ class DJsessionTestCase(TestCase):
             "Success")
 
         # let's insert something in current table
-        sql = """INSERT INTO django_session_2 VALUES ('a', 'a', date());"""
-        cursor.execute(sql)
+        sql = """INSERT INTO django_session_2 VALUES ('a', 'a', %s);"""
+        cursor.execute(sql, [today])
             
         self.assertEqual(Tableversion.objects.cleanup_old_session_table(),
             "Success")

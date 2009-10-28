@@ -18,6 +18,25 @@ sessions from the old table to the new one when the user try to access them.
 
 After a choosen time. Repeat the operation and finaly delete the old table.
 
+Usage
+=====
+
+Start by executing::
+
+    $ python manage.py rotatesessions
+
+This should create a new session table. Restart your server after that so
+the new table names are taken in account. Every session that is saved will
+be migrated from the old table to the new one.
+
+When you begin to have a lot of these session table you can cleanup
+the unused one by doing::
+
+    $ python manage.py cleanupsessions
+
+All the old session tables will be truncated/droped. Don't run this if you
+are not sure that everything went properly.
+
 Installation
 ============
 

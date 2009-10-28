@@ -47,17 +47,18 @@ class TableversionManager(models.Manager):
 
     def one_sessions_table_is_empty(self):
         preserve_set = self.get_session_table_name()
-        sql1 = """SELECT * FROM %s LIMIT 1;""" % preserve_set[0]
-        sql2 = """SELECT * FROM %s LIMIT 1;""" % preserve_set[1]
+        sql = """SELECT session_key FROM %s LIMIT 1;"""
         cursor = connection.cursor()
-        try:
-            cursor.execute(sql1)
-            cursor.next()
-            cursor.execute(sql2)
-            cursor.next()
-        except StopIteration:
+        cursor.execute(sql % preserve_set[0])
+        t1 = cursor.fetchall()
+        cursor.execute(sql % preserve_set[1])
+        t2 = cursor.fetchall()
+        if(not len(t1) or not len(t2)):
             return True
         return False
+
+    def table_exists(self, table_name):
+        return table_name in connection.introspection.table_names()
 
     def rotate_table(self):
         """Rotate the session table, create session tables if necessary."""
@@ -70,9 +71,9 @@ class TableversionManager(models.Manager):
             latest_version = self.model(current_version=1)
             latest_version.save()
             return latest_version
-        if not self.is_rotation_necessary(latest_version):
-            return latest_version
         if self.one_sessions_table_is_empty():
+            return latest_version
+        if not self.is_rotation_necessary(latest_version):
             return latest_version
         incresead_version = latest_version.current_version + 1
         latest_version = self.model(current_version=incresead_version)
@@ -91,7 +92,10 @@ class TableversionManager(models.Manager):
             expire_date datetime NOT NULL
         );
         """ % table_name
-        cursor.execute(sql)
+        try:
+            cursor.execute(sql)
+        except Exception, e:
+            print e
         transaction.commit_unless_managed()
         return "Success"
 
@@ -115,13 +119,18 @@ appropriate time for the old sessions to migrate."""
         
         for version in range(1, latest_version.current_version):
             previous, current = self.get_session_table_name(version)
-            if previous not in preserve_set:
+            if previous not in preserve_set and self.table_exists(previous):
                 sql = """TRUNCATE TABLE %s;""" % previous
+                print sql
                 try:
                     cursor.execute(sql)
                     transaction.commit_unless_managed()
                 except:
+                    # for sqlite3 and tests.
+                    pass
+                finally:
                     sql = """DROP TABLE %s;""" % previous
+                    print sql
                     cursor.execute(sql)
                     transaction.commit_unless_managed()
         return "Success"
