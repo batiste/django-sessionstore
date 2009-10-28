@@ -27,8 +27,9 @@ class TableversionManager(models.Manager):
                 current_version = 1
         previous_version = int(current_version -1)
 
-        # boot up the table name with the default table name for the sessions
-        # this will facilite a migration from the old session backend to this one.
+        # boot up the table name with the default Django table name for
+        # the sessions. This will facilite a migration from the old
+        # session backend to this one.
         if previous_version == 0:
             previous_table_name="django_session"
         else:
@@ -63,10 +64,10 @@ class TableversionManager(models.Manager):
     def create_session_table(self, table_name="django_session"):
         cursor = connection.cursor()
         sql = """
-        CREATE TABLE IF NOT EXISTS "%s" (
-            "session_key" varchar(40) NOT NULL PRIMARY KEY,
-            "session_data" text NOT NULL,
-            "expire_date" datetime NOT NULL
+        CREATE TABLE IF NOT EXISTS %s (
+            session_key varchar(40) NOT NULL PRIMARY KEY,
+            session_data text NOT NULL,
+            expire_date datetime NOT NULL
         );
         """ % table_name
         cursor.execute(sql)
@@ -75,7 +76,22 @@ class TableversionManager(models.Manager):
 
     def cleanup_old_session_table(self):
         preserve_set = self.get_session_table_name()
+
+        table_empty_msg = """On of the current session table is empty.
+Be sure you have restarted your servers properly and waited the
+appropriate time for the old sessions to migrate."""
+        
+        # test if there is something in both of current tables
+        sql1 = """SELECT * FROM %s LIMIT 1;""" % preserve_set[0]
+        sql2 = """SELECT * FROM %s LIMIT 1;""" % preserve_set[1]
         cursor = connection.cursor()
+        try:
+            cursor.execute(sql1)
+            cursor.next()
+            cursor.execute(sql2)
+            cursor.next()
+        except StopIteration:
+            return table_empty_msg
         try:
             latest_version = self.latest()
         except self.model.DoesNotExist:
@@ -86,12 +102,12 @@ class TableversionManager(models.Manager):
         for version in range(1, latest_version.current_version):
             previous, current = self.get_session_table_name(version)
             if previous not in preserve_set:
-                sql = """TRUNCATE TABLE "%s";""" % previous
+                sql = """TRUNCATE TABLE %s;""" % previous
                 try:
                     cursor.execute(sql)
                     transaction.commit_unless_managed()
                 except:
-                    sql = """DROP TABLE "%s";""" % previous
+                    sql = """DROP TABLE %s;""" % previous
                     cursor.execute(sql)
                     transaction.commit_unless_managed()
         return "Success"

@@ -95,11 +95,13 @@ class DJsessionTestCase(TestCase):
         self.assertEqual(Tableversion.objects.get_session_table_name(),
             ('django_session', 'django_session_1'))
 
+        introspection = connection.introspection
+
         self.assertEqual(Tableversion.objects.rotate_table().current_version, 1)
         self.assertEqual(Tableversion.objects.rotate_table().current_version, 1)
 
-        self.assertTrue("django_session_1" in connection.introspection.table_names())
-        self.assertFalse("django_session_2" in connection.introspection.table_names())
+        self.assertTrue("django_session_1" in introspection.table_names())
+        self.assertFalse("django_session_2" in introspection.table_names())
 
         self.assertEqual(Tableversion.objects.get_session_table_name(),
             ('django_session', 'django_session_1'))
@@ -116,19 +118,28 @@ class DJsessionTestCase(TestCase):
         self.assertEqual(Tableversion.objects.get_session_table_name(),
             ('django_session_1', 'django_session_2'))
 
-        self.assertTrue("django_session_2" in connection.introspection.table_names())
+        self.assertTrue("django_session_2" in introspection.table_names())
 
-        self.assertTrue("django_session" in connection.introspection.table_names())
-        Tableversion.objects.cleanup_old_session_table()
-        self.assertTrue("django_session" not in connection.introspection.table_names())
+        self.assertTrue("django_session" in introspection.table_names())
+        # for security, the cleanup should abort if there is nothing
+        # in the current session table
+        self.assertNotEqual(Tableversion.objects.cleanup_old_session_table(),
+            "Success")
 
+        # let's insert something in current table
         cursor = connection.cursor()
-        sql = """
-        SELECT * FROM "django_session_2";
-        """
+        sql = """INSERT INTO django_session_2 VALUES ('a', 'a', date());"""
         cursor.execute(sql)
-        transaction.commit_unless_managed()
-        try:
-            cursor.next()
-        except StopIteration:
-            pass
+
+        # should refuse to cleanup
+        self.assertNotEqual(Tableversion.objects.cleanup_old_session_table(),
+            "Success")
+
+        # let's insert something in previous table
+        sql = """INSERT INTO django_session_1 VALUES ('a', 'a', date());"""
+        cursor.execute(sql)
+            
+        self.assertEqual(Tableversion.objects.cleanup_old_session_table(),
+            "Success")
+
+        self.assertTrue("django_session" not in introspection.table_names())
