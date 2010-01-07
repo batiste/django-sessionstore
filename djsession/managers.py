@@ -121,7 +121,6 @@ appropriate time for the old sessions to migrate."""
             previous, current = self.get_session_table_name(version)
             if previous not in preserve_set and self.table_exists(previous):
                 sql = """TRUNCATE TABLE %s;""" % previous
-                print sql
                 try:
                     cursor.execute(sql)
                     transaction.commit_unless_managed()
@@ -130,7 +129,6 @@ appropriate time for the old sessions to migrate."""
                     pass
                 finally:
                     sql = """DROP TABLE %s;""" % previous
-                    print sql
                     cursor.execute(sql)
                     transaction.commit_unless_managed()
         return "Success"
