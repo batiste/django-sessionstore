@@ -7,7 +7,7 @@ from django.db import connection, transaction
 class TableversionManager(models.Manager):
 
     def version_table_created(self): 
-        """Tell if the T is available or need to be created"""
+        """Tell if the table is available or need to be created"""
         tables = connection.introspection.table_names()
         abs_name = connection.introspection.table_name_converter(
                 self.model._meta.db_table)

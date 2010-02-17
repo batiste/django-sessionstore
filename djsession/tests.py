@@ -13,6 +13,8 @@ from djsession.models import CurrentSession, PrevSession
 from djsession.models import Tableversion
 from djsession.settings import DJSESSION_EXPIRE_DAYS
 
+tv = Tableversion.objects
+
 class DJsessionTestCase(TestCase):
 
     def test_01_simple(self):
@@ -75,17 +77,17 @@ class DJsessionTestCase(TestCase):
     def test_03_table_name(self):
         """Test that the table name is properly set up."""
 
-        self.assertEqual(Tableversion.objects.get_session_table_name(),
+        self.assertEqual(tv.get_session_table_name(),
             ('django_session', 'django_session_1'))
 
         Tableversion(current_version=2).save()
 
-        self.assertEqual(Tableversion.objects.get_session_table_name(),
+        self.assertEqual(tv.get_session_table_name(),
             ('django_session_1', 'django_session_2'))
 
         Tableversion(current_version=3).save()
 
-        self.assertEqual(Tableversion.objects.get_session_table_name(),
+        self.assertEqual(tv.get_session_table_name(),
             ('django_session_2', 'django_session_3'))
         
         settings.DEBUG = False
@@ -97,42 +99,48 @@ class DJsessionTestCase(TestCase):
         introspection = connection.introspection
         today = connection.ops.value_to_db_date(datetime.datetime.now())
 
-        self.assertEqual(Tableversion.objects.rotate_table().current_version, 1)
-        self.assertEqual(Tableversion.objects.rotate_table().current_version, 1)
+        self.assertEqual(tv.rotate_table().current_version, 1)
+        self.assertEqual(tv.rotate_table().current_version, 1)
 
-        self.assertEqual(Tableversion.objects.get_session_table_name(),
+        self.assertEqual(tv.get_session_table_name(),
             ('django_session', 'django_session_1'))
 
         delta = datetime.timedelta(days=DJSESSION_EXPIRE_DAYS + 1)
-        lastest = Tableversion.objects.latest()
+        lastest = tv.latest()
         lastest.latest_rotation = datetime.datetime.now() - delta
         lastest.save()
 
         # without data in session the rotation should be denied
-        self.assertEqual(Tableversion.objects.rotate_table().current_version, 1)
+        self.assertEqual(tv.rotate_table().current_version, 1)
         sql = """INSERT INTO django_session_1 VALUES ('a', 'a', %s);"""
         cursor.execute(sql, [today])
         sql = """INSERT INTO django_session VALUES ('a', 'a', %s);"""
         cursor.execute(sql, [today])
 
-        self.assertEqual(Tableversion.objects.rotate_table().current_version, 2)
+        self.assertEqual(tv.rotate_table().current_version, 2)
 
-        self.assertEqual(Tableversion.objects.get_session_table_name(),
+        self.assertEqual(tv.get_session_table_name(),
             ('django_session_1', 'django_session_2'))
 
         self.assertTrue("django_session_2" in introspection.table_names())
         self.assertTrue("django_session" in introspection.table_names())
 
         # should refuse to cleanup because django_session_2 is empty
-        self.assertNotEqual(Tableversion.objects.cleanup_old_session_table(),
+        self.assertNotEqual(tv.cleanup_old_session_table(),
             "Success")
 
         # let's insert something in current table
         sql = """INSERT INTO django_session_2 VALUES ('a', 'a', %s);"""
         cursor.execute(sql, [today])
             
-        self.assertEqual(Tableversion.objects.cleanup_old_session_table(),
+        self.assertEqual(tv.cleanup_old_session_table(),
             "Success")
 
         # django_session should have been deleted
         self.assertTrue("django_session" not in introspection.table_names())
+
+        # then we need to put it back for other applications
+        # tests that are coming
+        tv.create_session_table(table_name="django_session")
+        self.assertTrue("django_session" in introspection.table_names())
+        
