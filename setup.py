@@ -103,6 +103,7 @@ setup(
     cmdclass = {"test": RunTests},
     test_suite="nose.collector",
     install_requires=[
+        'Django',
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
