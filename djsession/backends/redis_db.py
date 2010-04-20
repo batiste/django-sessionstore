@@ -8,9 +8,9 @@ import redis
 
 r = redis.Redis(
     host=getattr(settings, 'REDIS_SESSION_HOST', None),
-    port=getattr(settings, 'REDIS_SESSION_PORT', None),
-    socket_timeout=getattr(settings, 'REDIS_SESSION_SOCKET_TIMEOUT', None),
-    db=getattr(settings, 'REDIS_SESSION_DB', None))
+    port=int(getattr(settings, 'REDIS_SESSION_PORT', None)),
+    socket_timeout=int(getattr(settings, 'REDIS_SESSION_SOCKET_TIMEOUT', None)),
+    db=int(getattr(settings, 'REDIS_SESSION_DB', None)))
 
 
 class SessionStore(SessionBase):
