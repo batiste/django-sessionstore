@@ -60,7 +60,13 @@ class SessionStore(SessionBase):
                 raise CreateError
         else:
             self.redis.set(self.session_key, dumps(session_data),)
-        self.redis.execute_command('EXPIRE', self.session_key, getattr(settings, 'REDIS_SESSION_KEY_TTL', 60 * 60 * 24))
+        
+        # :FIXME: the EXPIRE is currently commented out because UI profile data is stored within sessions, and therefore
+        # if sessions are expired, users will lose their profiles.
+        # Once UI profile data are split out from sessions, this can be re-enabled.
+        # self.redis.execute_command('EXPIRE', self.session_key, getattr(settings, 'REDIS_SESSION_KEY_TTL', 60 * 60 * 24))
+        
+        # :FOXME: teh EXEC is curerntly commented out, see MULTI/EXEC note above
         # self.redis.execute_command('EXEC')
 
     def exists(self, session_key):
