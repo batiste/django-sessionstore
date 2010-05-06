@@ -63,7 +63,7 @@ class SessionStore(SessionBase):
         
         self.redis.execute_command('EXPIRE', self.session_key, getattr(settings, 'REDIS_SESSION_KEY_TTL', 60 * 60 * 24))
         
-        # :FOXME: teh EXEC is curerntly commented out, see MULTI/EXEC note above
+        # :FIXME: the EXEC is currently commented out, see MULTI/EXEC note above
         # self.redis.execute_command('EXEC')
 
     def exists(self, session_key):
