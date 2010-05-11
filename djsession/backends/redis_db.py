@@ -61,7 +61,10 @@ class SessionStore(SessionBase):
         else:
             self.redis.set(self.session_key, dumps(session_data),)
         
-        self.redis.execute_command('EXPIRE', self.session_key, getattr(settings, 'REDIS_SESSION_KEY_TTL', 60 * 60 * 24))
+        if (session_data.get('_auth_user_id', False)):
+            self.redis.execute_command('EXPIRE', self.session_key, getattr(settings, 'REDIS_AUTHENTICATED_SESSION_KEY_TTL', 60 * 60 * 24 * 30))
+        else:
+            self.redis.execute_command('EXPIRE', self.session_key, getattr(settings, 'REDIS_ANONYMOUS_SESSION_KEY_TTL', 60 * 60 * 24 * 2))
         
         # :FIXME: the EXEC is currently commented out, see MULTI/EXEC note above
         # self.redis.execute_command('EXEC')
