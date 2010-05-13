@@ -31,7 +31,7 @@ class SessionStore(SessionBase):
             return loads(session_data)
         else:
             session_data = self.cached_db.load()
-            self.save(session_data=session_data)
+            self.save(session_data=session_data, must_create=True)
             self.cached_db.delete(self.session_key)
             return session_data
 
@@ -52,14 +52,11 @@ class SessionStore(SessionBase):
         # self.redis.execute_command('MULTI')
         if not session_data:
             session_data = self._get_session(no_load=must_create)
-        if must_create:
-            # preserve=True -> SETNX
-            result = self.redis.set(
-                self.session_key, dumps(session_data), preserve=True)
-            if result == 0: # 0 == not created, 1 == created.
-                raise CreateError
-        else:
-            self.redis.set(self.session_key, dumps(session_data),)
+        # preserve=True -> SETNX
+        result = self.redis.set(
+            self.session_key, dumps(session_data), preserve=must_create)
+        if result == 0: # 0 == not created, 1 == created.
+            raise CreateError
         
         if (session_data.get('_auth_user_id', False)):
             self.redis.execute_command('EXPIRE', self.session_key, getattr(settings, 'REDIS_AUTHENTICATED_SESSION_KEY_TTL', 60 * 60 * 24 * 30))
