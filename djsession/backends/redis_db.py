@@ -47,7 +47,7 @@ class SessionStore(SessionBase):
             return
 
     def save(self, must_create=False, session_data=None):
-        # MULTI/EXEC command is disabled for the moment as it doesn't seem 
+        # MULTI/EXEC command is disabled for the moment as it doesn't seem
         # to be support in stable versions of redis yet (as of 1.2.6)
         # self.redis.execute_command('MULTI')
         if not session_data:
@@ -57,12 +57,16 @@ class SessionStore(SessionBase):
             self.session_key, dumps(session_data), preserve=must_create)
         if result == 0: # 0 == not created, 1 == created.
             raise CreateError
-        
+
         if (session_data.get('_auth_user_id', False)):
-            self.redis.execute_command('EXPIRE', self.session_key, getattr(settings, 'REDIS_AUTHENTICATED_SESSION_KEY_TTL', 60 * 60 * 24 * 30))
+            self.redis.execute_command('EXPIRE', self.session_key,
+                getattr(settings, 'REDIS_AUTHENTICATED_SESSION_KEY_TTL',
+                60 * 60 * 24 * 30)) # 30 days
         else:
-            self.redis.execute_command('EXPIRE', self.session_key, getattr(settings, 'REDIS_ANONYMOUS_SESSION_KEY_TTL', 60 * 60 * 24 * 2))
-        
+            self.redis.execute_command('EXPIRE', self.session_key,
+                getattr(settings, 'REDIS_ANONYMOUS_SESSION_KEY_TTL',
+                60 * 60 * 24 * 2)) # 2 days
+
         # :FIXME: the EXEC is currently commented out, see MULTI/EXEC note above
         # self.redis.execute_command('EXEC')
 
