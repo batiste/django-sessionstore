@@ -20,7 +20,7 @@ class Tableversion(models.Model):
         auto_now_add=True)
 
     objects = TableversionManager()
-    
+
     class Meta:
         get_latest_by = ('current_version')
         verbose_name = _("table version")
@@ -61,13 +61,17 @@ class Session(models.Model):
     class Meta:
         abstract = True
 
+#if ('django.contrib.sessions' in settings.INSTALLED_APPS):
+#    raise ValueError("""django.contrib.sessions cannot be used with djsession.
+#You have to choose.""")
+
 class PrevSession(Session):
 
     class Meta:
         db_table = PREVIOUS_TABLE_NAME
 
 class CurrentSession(Session):
-    
+
     class Meta:
         db_table = CURRENT_TABLE_NAME
 

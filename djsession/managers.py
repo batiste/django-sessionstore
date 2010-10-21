@@ -6,7 +6,7 @@ from django.db import connection, transaction
 
 class TableversionManager(models.Manager):
 
-    def version_table_created(self): 
+    def version_table_created(self):
         """Tell if the table is available or need to be created"""
         tables = connection.introspection.table_names()
         abs_name = connection.introspection.table_name_converter(
@@ -116,7 +116,7 @@ appropriate time for the old sessions to migrate."""
             return "Nothing to cleanup"
         if latest_version.current_version < 2:
             return "Nothing to cleanup"
-        
+
         for version in range(1, latest_version.current_version):
             previous, current = self.get_session_table_name(version)
             if previous not in preserve_set and self.table_exists(previous):
