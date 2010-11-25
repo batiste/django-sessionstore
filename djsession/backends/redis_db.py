@@ -3,10 +3,7 @@ from cPickle import loads, dumps
 from django.contrib.sessions.backends.base import SessionBase, CreateError
 from django.conf import settings
 
-from djsession.backends.cached_db import SessionStore as CachedDBSessionStore
-
 import redis
-
 
 r = redis.Redis(
     host=getattr(settings, 'REDIS_SESSION_HOST', None),
@@ -20,7 +17,6 @@ class SessionStore(SessionBase):
     A redis-based session store.
     """
     def __init__(self, session_key=None):
-        self.cached_db = CachedDBSessionStore(session_key=session_key)
         self.redis = r
         # self.redis.connect()
         super(SessionStore, self).__init__(session_key)
@@ -29,11 +25,6 @@ class SessionStore(SessionBase):
         session_data = self.redis.get(self.session_key)
         if session_data is not None:
             return loads(session_data)
-        else:
-            session_data = self.cached_db.load()
-            self.save(session_data=session_data, must_create=True)
-            self.cached_db.delete(self.session_key)
-            return session_data
 
     def create(self, session_data=None):
         while True:
