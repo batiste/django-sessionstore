@@ -25,6 +25,9 @@ class SessionStore(SessionBase):
         session_data = self.redis.get(self.session_key)
         if session_data is not None:
             return loads(session_data)
+        if session_data is None:
+            session_data = super(SessionStore, self).load()
+        return session_data
 
     def create(self, session_data=None):
         while True:
