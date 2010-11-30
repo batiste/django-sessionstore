@@ -76,3 +76,4 @@ class SessionStore(SessionBase):
                 return
             session_key = self._session_key
         self.redis.delete(session_key)
+
